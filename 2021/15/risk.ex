@@ -2,7 +2,7 @@ defmodule Risk do
 
   def start() do
     env =
-      String.split(Input.input, "\n", trim: true)
+      String.split(Input.demo2, "\n", trim: true)
       |> Enum.map(fn(x) ->
         String.to_charlist(x)
       end)
@@ -24,6 +24,7 @@ defmodule Risk do
     to = {x_max,y_max}
     |> IO.inspect()
 
+    IO.inspect(matrix)
     # Find lowest through calculating (from max,max to 0,0)
     operate(matrix, to, 0)
     |> IO.inspect()
@@ -34,15 +35,15 @@ defmodule Risk do
     matrix = expand(matrix, tiles)
 
     # matrix control
-    Enum.take(matrix, 1) |> List.flatten() |> print()
+    # Enum.take(matrix, 1) |> List.flatten() |> print()
     # 1163751742 2274862853 3385973964 4496184175 5517295286
-    List.foldr(matrix, [], fn(x, acc) ->
-      [Enum.take(x,1)|acc]
-    end)
-    |> List.flatten() |> print()
+    # List.foldr(matrix, [], fn(x, acc) ->
+    #   [Enum.take(x,1)|acc]
+    # end)
+    # |> List.flatten() |> print()
 
     # 1299833479
-    Enum.drop(matrix, 49) |> List.flatten() |> Enum.drop(40) |> IO.inspect()
+    # Enum.drop(matrix, 49) |> List.flatten() |> Enum.drop(40) |> IO.inspect()
 
     # update size of matrix
     y_max = length(matrix) - 1
@@ -53,7 +54,7 @@ defmodule Risk do
 
     # run the operation
     {_, {_,s}, {_,e}} = operate(matrix, to, 0)
-    # |> IO.inspect()
+    #|> IO.inspect()
     IO.puts("Result Part 2:")
     if s < e do
       IO.puts("Least cost is #{s}")
@@ -113,21 +114,33 @@ defmodule Risk do
     expand_rows(m, [], [], n)
   end
 
-  def operate(m, {x,_}, n) when n > x do
+  def operate(m, {x,_}, x) do
+    s = get_s(m, {0,0})
+    e = get_e(m, {0,0})
+    {m, {:south, s}, {:east, e}}
+  end
+  def operate(m, {_,x}, x) do
     s = get_s(m, {0,0})
     e = get_e(m, {0,0})
     {m, {:south, s}, {:east, e}}
   end
   def operate(m, max, n) do
-    sum_path(m, max, 0, n)
+    sum_path(m, max, n, n)
     |> operate(max, n+1)
   end
 
+  def sum_path_x(m, {x,y} = max, x, n) do
+    calc(m, {0, y-n}, max)
+  end
+  def sum_path_x(m, {x,y} = max, i, n) do
+    calc(m, {x-i, y-n}, max)
+    |> sum_path_x(max, i+1, n)
+  end
   def sum_path(m, {x,y} = max, y, n) do
     calc(m, {x-n,0}, max)
+    |> sum_path_x(max, n+1, n)
   end
   def sum_path(m, {x,y} = max, i, n) do
-    # r = rem(n, x + 1)
     calc(m, {x-n,y-i}, max)
     |> sum_path({x,y}, i+1, n)
   end
@@ -154,6 +167,7 @@ defmodule Risk do
   end
 
   def update(m, {x,y}, n) do
+    # IO.puts("updating {#{x},#{y}}")
     update_y(m, {x,y}, n, [])
   end
   def update_y([h|t], {x, 0}, n, acc) do
@@ -208,6 +222,237 @@ defmodule Risk do
   end
 
 end
+defmodule Risk2 do
+  def start() do
+    env =
+      String.split(Input.input, "\n", trim: true)
+      |> Enum.map(fn(x) ->
+        String.to_charlist(x)
+      end)
+
+    # for matrix calc
+    matrix =
+      Enum.map(env, fn(y) ->
+        Enum.map(y, fn(x) ->
+          x - 48
+        end)
+      end)
+
+    # Get size of matrix
+    y_max = length(env) - 1
+    [h|_] = env
+    x_max = length(h) - 1
+
+    # Find lowest cost path, PART 1
+    to = {x_max,y_max}
+    # |> IO.inspect()
+
+    # IO.inspect(matrix)
+    # Find lowest through calculating (from max,max to 0,0)
+    m = Enum.map(matrix, fn(y) ->
+      List.to_tuple(y)
+    end)
+    |> List.to_tuple()
+
+    {m, map} = operate(m, to, {0,0})
+    least = Map.fetch!(map, to)
+    IO.puts("Part1 least cost: #{least}")
+    start = Map.fetch!(map, {0,0})
+    IO.puts("Startcost = #{start}")
+    # PART 2
+    # expand matrix
+    tiles = 5
+    matrix = Risk.expand(matrix, tiles)
+
+    # update size of matrix
+    y_max = length(matrix) - 1
+    [h|_] = matrix
+    x_max = length(h) - 1
+    to = {x_max,y_max}
+    |> IO.inspect()
+
+    # to tuple
+    m = Enum.map(matrix, fn(y) ->
+      List.to_tuple(y)
+    end)
+    |> List.to_tuple()
+
+    # run the operation
+    {m, map} = operate(m, to, {0,0})
+    least = Map.fetch!(map, to)
+    IO.puts("Part2 least cost: #{least}")
+    start = Map.fetch!(map, {0,0})
+    IO.puts("Startcost = #{start}")
+
+
+  end
+
+  def operate(m, max, from) do
+    map = %{from => 0}
+    find_path(m, max, [from], map)
+  end
+
+  def find_path(m,_,[],map), do: {m, map}
+  def find_path(m, max, [[]|queue], map) do
+    #IO.inspect(queue)
+
+    find_path(m, max, queue, map)
+  end
+  def find_path(m, max, [{0,0}|queue], map) do
+    {map, elem2} =
+      adjecent_path(m, {0,0}, {1, 0}, map)
+    {map, elem4} =
+      adjecent_path(m, {0,0}, {0, 1}, map)
+    elem =
+      [elem2, elem4]
+    queue = queue ++ elem
+    #IO.inspect(queue)
+
+    find_path(m, max, queue, map)
+  end
+  def find_path(m, {x,y} = max, [{x,y}|queue], map) do
+    {map, elem1} =
+      adjecent_path(m, {x,y}, {x, y-1}, map)
+    {map, elem4} =
+      adjecent_path(m, {x,y}, {x-1, y}, map)
+    elem =
+      [elem1, elem4]
+    queue = queue ++ elem
+    #IO.inspect(queue)
+
+    find_path(m, max, queue, map)
+  end
+  def find_path(m, {x,_} = max, [{x,0}|queue], map) do
+    {map, elem3} =
+      adjecent_path(m, {x,0}, {x, 1}, map)
+    {map, elem4} =
+      adjecent_path(m, {x,0}, {x-1, 0}, map)
+    elem =
+      [elem3, elem4]
+    queue = queue ++ elem
+    #IO.inspect(queue)
+
+    find_path(m, max, queue, map)
+  end
+  def find_path(m, {_,y} = max, [{0,y}|queue], map) do
+    {map, elem1} =
+      adjecent_path(m, {0,y}, {0, y-1}, map)
+    {map, elem2} =
+      adjecent_path(m, {0,y}, {1, y}, map)
+    elem =
+      [elem1, elem2]
+    queue = queue ++ elem
+    #IO.inspect(queue)
+
+    find_path(m, max, queue, map)
+  end
+  def find_path(m, {x,_} = max, [{x,y}|queue], map) do
+    {map, elem1} =
+      adjecent_path(m, {x,y}, {x, y-1}, map)
+    {map, elem3} =
+      adjecent_path(m, {x,y}, {x, y+1}, map)
+    {map, elem4} =
+      adjecent_path(m, {x,y}, {x-1, y}, map)
+    elem =
+      [elem1, elem3, elem4]
+    queue = queue ++ elem
+    #IO.inspect(queue)
+
+    find_path(m, max, queue, map)
+  end
+  def find_path(m, {_,y} = max, [{x,y}|queue], map) do
+    {map, elem1} =
+      adjecent_path(m, {x,y}, {x, y-1}, map)
+    {map, elem2} =
+      adjecent_path(m, {x,y}, {x+1, y}, map)
+    {map, elem4} =
+      adjecent_path(m, {x,y}, {x-1, y}, map)
+    elem =
+      [elem1, elem2, elem4]
+    queue = queue ++ elem
+    #IO.inspect(queue)
+
+    find_path(m, max, queue, map)
+  end
+
+  def find_path(m, max, [{0,y}|queue], map) do
+    {map, elem1} =
+      adjecent_path(m, {0,y}, {0, y-1}, map)
+    {map, elem2} =
+      adjecent_path(m, {0,y}, {1, y}, map)
+    {map, elem4} =
+      adjecent_path(m, {0,y}, {0, y+1}, map)
+    elem =
+      [elem1, elem2, elem4]
+    queue = queue ++ elem
+    #IO.inspect(queue)
+
+    find_path(m, max, queue, map)
+  end
+  def find_path(m, max, [{x,0}|queue], map) do
+    {map, elem1} =
+      adjecent_path(m, {x,0}, {x+1, 0}, map)
+    {map, elem2} =
+      adjecent_path(m, {x,0}, {x, 1}, map)
+    {map, elem4} =
+      adjecent_path(m, {x,0}, {x-1, 0}, map)
+    elem =
+      [elem1, elem2, elem4]
+    queue = queue ++ elem
+    #IO.inspect(queue)
+
+    find_path(m, max, queue, map)
+  end
+  def find_path(m, max, [{x,y}|queue], map) do
+    {map, elem1} =
+      adjecent_path(m, {x,y}, {x, y-1}, map)
+    {map, elem2} =
+      adjecent_path(m, {x,y}, {x+1, y}, map)
+    {map, elem3} =
+      adjecent_path(m, {x,y}, {x, y+1}, map)
+    {map, elem4} =
+      adjecent_path(m, {x,y}, {x-1, y}, map)
+
+    elem =
+      [elem1, elem2, elem3, elem4]
+    queue = queue ++ elem
+
+    #IO.inspect(queue)
+    find_path(m, max, queue, map)
+  end
+
+  def adjecent_path(m, from, {x,y}, map) do
+    #IO.puts("In adj. checking #{x},#{y}")
+    case Map.fetch(map, {x,y}) do
+      :error ->
+        #IO.puts("trying to add new value with elem")
+        map =
+          Map.put(map,{x,y}, Map.fetch!(map,from) + elem(elem(m,y),x))
+        {map, {x,y}}
+      {:ok, value} ->
+        #IO.puts("comparing old value with elem")
+        tmp = Map.fetch!(map,from) + elem(elem(m,y),x)
+        if value <= tmp do
+          {map, []}
+        else
+          #IO.puts("added to pq")
+          #IO.puts("old value = #{value}, new value = #{tmp}")
+          map = Map.replace!(map, {x,y}, tmp)
+          {map, {x,y}}
+        end
+    end
+  end
+
+  # quick append, reverses first parameter
+  def append([], x), do: x
+  def append([h|t], x), do: append(t, [h|x])
+
+  def member(_,[]), do: false
+  def member(elem, [elem|_]), do: true
+  def member(elem, [_|t]) do
+    member(elem, t)
+  end
+end
 defmodule Input do
   @demo """
   1163751742
@@ -220,6 +465,18 @@ defmodule Input do
   3125421639
   1293138521
   2311944581
+  """
+  @demo2 """
+  19999
+  19111
+  11191
+  """
+
+  @demo3 """
+  19999
+  19111
+  11191
+  33331
   """
   @input """
   9789322886192667713999597652972828489298193868271919348889871967497986926939727358997884891977956945
@@ -428,6 +685,9 @@ defmodule Input do
   """
 
   def demo, do: @demo
+  def demo2, do: @demo2
+  def demo3, do: @demo3
+
   def input, do: @input
   def input2, do: @input2
 
